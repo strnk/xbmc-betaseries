@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import xbmc, xbmcaddon, xbmcgui, xbmcplugin, xbmcvfs
-import os, sys, re, string, urllib, urllib2, socket, unicodedata, shutil, time, platform
-import simplejson as json
+import os, sys, re, string, socket, unicodedata, shutil, time, platform, json
+import urllib.parse, urllib.error, urllib.request
+
+def normalize_string(txt):
+    return unicodedata.normalize('NFKD', txt)
 
 __addon__        = xbmcaddon.Addon()
 __addonid__      = __addon__.getAddonInfo('id')
@@ -11,8 +14,8 @@ __addonversion__ = __addon__.getAddonInfo('version')
 __icon__         = __addon__.getAddonInfo('icon')
 __language__     = __addon__.getLocalizedString
 __platform__     = platform.system() + " " + platform.release()
-__profile__      = xbmc.translatePath( __addon__.getAddonInfo('profile') ).decode("utf-8")
-__temp__         = xbmc.translatePath( os.path.join( __profile__, 'temp') ).decode("utf-8")
+__profile__      = xbmc.translatePath( normalize_string(__addon__.getAddonInfo('profile') ))
+__temp__         = xbmc.translatePath( normalize_string(os.path.join( __profile__, 'temp') ))
 
 sys.path.append( os.path.join( __profile__, "lib") )
 
@@ -51,9 +54,6 @@ def normalize_lang(lang, lang_from, lang_to):
             return x[lang_to]
     # return lang if not found
     return lang
-
-def normalize_string(txt):
-    return unicodedata.normalize('NFKD', txt).encode('ascii', 'ignore')
 
 def log(txt, level=xbmc.LOGDEBUG):
     message = u'%s: %s' % (__addonid__, txt)
@@ -98,17 +98,17 @@ def get_url(url, referer=self_host):
     'Cache-Control': 'no-store, no-cache, must-revalidate',
     'Pragma': 'no-cache',
     'Referer': referer}
-    request = urllib2.Request(url, headers=req_headers)
-    opener = urllib2.build_opener()
+    request = urllib.request.Request(url, headers=req_headers)
+    opener = urllib.request.build_opener()
     try:
         response = opener.open(request)
         contents = response.read()
         return contents
-    except urllib2.HTTPError, e:
+    except urllib.error.HTTPError as e:
         log('HTTPError = ' + str(e.code), xbmc.LOGERROR)
         if e.code == 400:
             return False
-    except urllib2.URLError, e:
+    except urllib.error.URLError as e:
         log('URLError = ' + str(e.reason), xbmc.LOGERROR)
     except Exception:
         import traceback
@@ -202,7 +202,7 @@ def search_subtitles(search):
     # configure socket
     socket.setdefaulttimeout(10)
     # define default url to get betaseries episode id from filename
-    episodeurl = "%s/episodes/scraper?file=%s&key=%s&v=%s" % (self_host, urllib.quote(filename), self_apikey, self_apiver)
+    episodeurl = "%s/episodes/scraper?file=%s&key=%s&v=%s" % (self_host, urllib.parse.quote(filename), self_apikey, self_apiver)
     # check video type
     if search['mode'] == "tvshow":
         # get playerid
@@ -250,7 +250,7 @@ def search_subtitles(search):
         subfile = normalize_string(subtitle["file"])
         log("after subfile = %s" % (subfile))
         # get file extension
-        ext = string.split(subfile,'.')[-1]
+        ext = subfile.split('.')[-1]
         # get season number from data
         season = int(subtitle["episode"]["season"])
         log("after season = %s" % (season))
@@ -388,15 +388,13 @@ def search_subtitles(search):
         # for each subtitle
         for item in subtitles:
             # xbmc list item format
-            listitem = xbmcgui.ListItem(label=item["lang"],
-              label2=item["filename"],
-              iconImage=str(item["note"]),
-              thumbnailImage=item["lang2"])
+            listitem = xbmcgui.ListItem(label=item["lang"], label2=item["filename"])
+            listitem.setArt({ 'icon': str(item["note"]), 'thumb': item["lang2"]})
             # setting sync / CC tag
             listitem.setProperty("sync", 'true' if item["sync"] else 'false')
             listitem.setProperty("hearing_imp", 'true' if item["cc"] else 'false')
             # adding item to GUI list
-            url = "plugin://%s/?action=download&link=%s&ext=%s&filename=%s" % (__addonid__, item["link"], item["ext"], urllib.quote(item["filename"]))
+            url = "plugin://%s/?action=download&link=%s&ext=%s&filename=%s" % (__addonid__, item["link"], item["ext"], urllib.parse.quote(item["filename"]))
             xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=url,listitem=listitem,isFolder=False)
     else:
         if self_notify:
@@ -422,15 +420,15 @@ params = get_params()
 # called when user is searching for subtitles
 if params['action'] == 'search':
     item = {}
-    item['tvshow']  = xbmc.getInfoLabel("VideoPlayer.TVshowtitle").decode("utf-8")
+    item['tvshow']  = normalize_string(xbmc.getInfoLabel("VideoPlayer.TVshowtitle"))
     item['year']    = xbmc.getInfoLabel("VideoPlayer.Year")
     item['season']  = xbmc.getInfoLabel("VideoPlayer.Season")
     item['episode'] = xbmc.getInfoLabel("VideoPlayer.Episode")
-    item['path']    = urllib.unquote(xbmc.Player().getPlayingFile().decode('utf-8'))
+    item['path']    = urllib.parse.unquote(normalize_string(xbmc.Player().getPlayingFile()))
     item['uilang']  = xbmc.getLanguage()
     item['langs']   = []
     # get user preferred languages for subtitles
-    for lang in urllib.unquote(params['languages']).decode('utf-8').split(","):
+    for lang in urllib.parse.unquote(normalize_string(params['languages'])).split(","):
         item['langs'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_1))
     # remove rar:// or stack://
     if ( item['path'].find("rar://") > -1 ):
@@ -450,7 +448,7 @@ if params['action'] == 'search':
 # called when user clicks on a subtitle
 elif params['action'] == 'download':
     # download link
-    sub = download_subtitle(params["link"], params["ext"], urllib.unquote(params["filename"]), self_host)
+    sub = download_subtitle(params["link"], params["ext"], urllib.parse.unquote(params["filename"]), self_host)
     if sub:
         # xbmc handles moving and using the subtitle
         listitem = xbmcgui.ListItem(label=sub)

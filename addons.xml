@@ -15,18 +15,22 @@
 		</extension>
 	</addon>
 
-	<addon id="service.subtitles.betaseries" name="Betaseries" version="1.0.8" provider-name="skylex">
+	<addon id="service.subtitles.betaseries" name="Betaseries" version="1.1.0" provider-name="skylex, strnk">
 		<requires>
-			<import addon="xbmc.python" version="2.1.0"/>
-			<import addon="script.module.simplejson" version="2.0.10" />
+			<import addon="xbmc.python" version="3.0.0"/>
 		</requires>
 		<extension point="xbmc.subtitle.module" library="service.py" />
 		<extension point="xbmc.addon.metadata">
 			<platform>all</platform>
+			<license> GPL-2.0-only</license>
 			<summary lang="en">BetaSeries subtitles service</summary>
 			<summary lang="fr">Service de sous-titres BetaSeries</summary>
 			<description lang="en">Search and download subtitles from BetaSeries.com</description>
 			<description lang="fr">Rechercher et télécharger des sous-titres depuis BetaSeries.com</description>
+			<news>
+				v1.1.0 (2021 09 12)
+				- refactoring for Kodi 19 Matrix
+			</news>
 		</extension>
 	</addon>
 
